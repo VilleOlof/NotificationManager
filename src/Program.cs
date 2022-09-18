@@ -16,9 +16,37 @@ internal sealed class Program
     {
         await LoadJSON();
 
+        await StartUpCheck();
+
         await CycleAsync();
         
         await Task.Delay(-1);
+    }
+    
+    private static async Task StartUpCheck()
+    {
+        if (!Directory.Exists(DataPath))
+        {
+            Directory.CreateDirectory(DataPath);
+        }
+        
+        foreach (var notification in Notifications)
+        {
+            if (!notification.Days.Contains(DateTime.Now.DayOfWeek)) { continue; }
+            
+            foreach (var sendOut in notification.SendOutTime)
+            {
+                TimeOnly SendOutTime = GetTimeFromArray(sendOut.TimeOnlyArray);
+                
+                //Check if sendOut has already happened, and if then change its .Sent to true
+                if (DateTime.Now.TimeOfDay > SendOutTime.ToTimeSpan())
+                {
+                    sendOut.Sent = true;
+
+                    await UpdateNotificationFileAsync(notification);
+                }
+            }
+        }
     }
 
     private static async Task CycleAsync()
@@ -41,8 +69,7 @@ internal sealed class Program
 
             foreach (var sendOut in notification.SendOutTime)
             {
-                int[] times = sendOut.TimeOnlyArray;
-                TimeOnly SendOutTime = new(times[0], times[1], times[2], times[3]);
+                TimeOnly SendOutTime = GetTimeFromArray(sendOut.TimeOnlyArray);
 
                 if ((SendOutTime.ToTimeSpan() <= DateTime.Now.TimeOfDay) && !sendOut.Sent)
                 {
@@ -73,6 +100,8 @@ internal sealed class Program
             await UpdateNotificationFileAsync(notification);
         }
     }
+
+    private static TimeOnly GetTimeFromArray(int[] times) => new(times[0], times[1], times[2], times[3]);
 
     private static async Task UpdateNotificationFileAsync(Notification notification) 
          => await File.WriteAllTextAsync(
