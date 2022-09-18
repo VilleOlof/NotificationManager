@@ -1,6 +1,5 @@
-﻿using Microsoft.Toolkit.Uwp.Notifications;
+using Microsoft.Toolkit.Uwp.Notifications;
 using Newtonsoft.Json;
-using System.Runtime.InteropServices;
 
 namespace NotificationManager;
 
@@ -17,24 +16,24 @@ internal sealed class Program
     {
         await LoadJSON();
 
-        await Cycle();
+        await CycleAsync();
         
         await Task.Delay(-1);
     }
 
-    private static async Task Cycle()
+    private static async Task CycleAsync()
     {
         while (true)
         {
-            await TryNotificationSend();
+            await TryNotificationSendAsync();
 
-            ResetSent();
+            await ResetSentAsync();
 
             await Task.Delay(CheckInterval);
         }
     }
 
-    private static async Task TryNotificationSend()
+    private static async Task TryNotificationSendAsync()
     {
         foreach (var notification in Notifications)
         {
@@ -51,18 +50,18 @@ internal sealed class Program
                     sendOut.Sent = true;
 
                     //Update The Notification Properties. Mostly For notification.Sent
-                    await File.WriteAllTextAsync($"{DataPath}{notification.FileName}.json", JsonConvert.SerializeObject(notification, Formatting.Indented));
+                    await UpdateNotificationFileAsync(notification);
                 }
             }
         }
     }
 
-    private static void ResetSent()
+    private static async Task ResetSentAsync()
     {
         //Reset notification.Sent to get it ready for the next day
         if (DateTime.Now.Hour != 0 && DateTime.Now.Minute != 0) { return; }
 
-        foreach (var notification in CollectionsMarshal.AsSpan(Notifications))
+        foreach (var notification in Notifications)
         {
             if (!notification.ResetAtMidnight) { continue; }
 
@@ -70,8 +69,15 @@ internal sealed class Program
             {
                 sendout.Sent = false;
             }
+
+            await UpdateNotificationFileAsync(notification);
         }
     }
+
+    private static async Task UpdateNotificationFileAsync(Notification notification) 
+         => await File.WriteAllTextAsync(
+            $"{DataPath}{notification.FileName}.json", 
+            JsonConvert.SerializeObject(notification, Formatting.Indented));
 
     private static async Task LoadJSON()
     {
